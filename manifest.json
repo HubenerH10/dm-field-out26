@@ -1,0 +1,13 @@
+{
+  "name": "DM Field · Desafio Zero Out/26",
+  "short_name": "DM Field",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#EEF0F3",
+  "theme_color": "#E41E2B",
+  "icons": [
+    {"src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable"},
+    {"src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"}
+  ]
+}
