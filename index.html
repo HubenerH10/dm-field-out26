@@ -139,6 +139,28 @@ h3{font-family:var(--cond);font-size:20px;margin:20px 2px 8px}
 .sync{font-size:13px;color:var(--sub);margin-top:14px;display:flex;justify-content:space-between;align-items:center;gap:8px}
 .sync button{border:1px solid var(--line);background:var(--card);border-radius:10px;padding:8px 12px;font-weight:600;font-size:14px}
 
+/* tela de visita registrada */
+.done{position:fixed;inset:0;z-index:25;background:var(--bg);display:none;flex-direction:column;max-width:640px;margin:0 auto;overflow-y:auto}
+.done.on{display:flex}
+.done .top{background:var(--red);color:#fff;padding:calc(env(safe-area-inset-top,0px) + 10px) 16px 40px}
+.done .top h1{font-family:var(--cond);font-size:22px;line-height:1}
+.done .top small{display:block;font-size:13px;opacity:.9;margin-top:3px}
+.done .card{background:var(--card);border-radius:18px 18px 0 0;margin-top:-24px;flex:1;padding:24px 18px calc(20px + env(safe-area-inset-bottom,0px))}
+.done .check{width:84px;height:84px;border-radius:50%;margin:0 auto 14px;display:grid;place-items:center;background:color-mix(in srgb,var(--sc) 14%,#fff);color:var(--sc)}
+.done h2{font-family:var(--cond);font-size:30px;text-align:center;line-height:1.05}
+.done .who{text-align:center;color:var(--sub);margin-top:6px;font-size:15px}
+.done .res{text-align:center;margin-top:10px}
+.done .stats{display:grid;grid-template-columns:1fr 1fr;gap:18px 8px;margin:24px 0 22px;text-align:center}
+.done .stats b{display:block;font-family:var(--cond);font-size:34px;line-height:1}
+.done .stats span{display:block;font-size:13px;color:var(--sub);margin-top:4px}
+.btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:15px;border-radius:14px;font-weight:700;font-size:17px;text-decoration:none;margin-top:10px;border:0}
+.btn.wa{background:#1FAF55;color:#fff}
+.btn.wa svg{width:24px;height:24px;flex:none}
+.btn.next{background:var(--ink);color:#fff}
+.btn.ghost{background:var(--card);color:var(--ink);border:1px solid var(--line)}
+.sync .wa-day{white-space:nowrap;background:#1FAF55;color:#fff;border:1px solid #1FAF55;border-radius:10px;padding:8px 12px;font-weight:600;font-size:14px;display:inline-flex;align-items:center;gap:6px;text-decoration:none}
+.sync .wa-day svg{width:18px;height:18px}
+
 /* dev picker + toast */
 .picker{position:fixed;inset:0;background:var(--bg);z-index:30;display:none;flex-direction:column;padding:calc(env(safe-area-inset-top,0px) + 24px) 20px 20px;max-width:640px;margin:0 auto}
 .picker.on{display:flex}
@@ -189,6 +211,7 @@ h3{font-family:var(--cond);font-size:20px;margin:20px 2px 8px}
   <p>Escolha seu nome. O celular guarda e você só troca se precisar.</p>
   <div class="names" id="names"></div>
 </div>
+<div class="done" id="done" role="dialog" aria-modal="true" aria-labelledby="done-t"></div>
 <div class="toast" id="toast" role="status"></div>
 
 <script>
@@ -204,7 +227,7 @@ const CONFIG = {
                '2026-10-13','2026-10-14','2026-10-15','2026-10-16',
                '2026-10-19','2026-10-20','2026-10-21','2026-10-22','2026-10-23',
                '2026-10-26','2026-10-27','2026-10-28','2026-10-29','2026-10-30'],
-  VERSAO: '1.1'
+  VERSAO: '1.2'
 };
 /* =============================================================== */
 
@@ -415,9 +438,66 @@ function registrar(){
   };
   fila.push(reg); LS.set(K_FILA,fila);
   fecharSheet(); renderLista();
-  toast(ST[reg.status].rev ? 'Registrado. Cliente foi para Revisitar.' : 'Visita registrada.');
+  telaFeito(reg);
   enviarFila();
 }
+
+/* ---------- WhatsApp ---------- */
+const WA_SVG='<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2.2a9.8 9.8 0 0 0-8.4 14.8L2.3 21.7l4.8-1.3A9.8 9.8 0 1 0 12 2.2Zm0 17.8a8 8 0 0 1-4.1-1.1l-.3-.2-2.9.8.8-2.8-.2-.3A8 8 0 1 1 12 20Zm4.4-6c-.2-.1-1.4-.7-1.7-.8-.2-.1-.4-.1-.5.1l-.8 1c-.1.2-.3.2-.5.1a6.6 6.6 0 0 1-3.3-2.9c-.2-.4.2-.4.7-1.3.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.5-.4h-.5c-.2 0-.4.1-.6.3-.2.2-.8.8-.8 2s.8 2.3 1 2.5c.1.2 1.7 2.6 4.1 3.6 1.5.7 2.1.7 2.9.6.5-.1 1.4-.6 1.6-1.1.2-.6.2-1 .1-1.1l-.4-.4Z"/></svg>';
+const ST_EMOJI={TRIPLA:'🟢',DUPLA:'🟢',AVULSO:'🔵',NAO_VENDEU:'⚪',FECHADO:'🔒',AUSENTE:'⏳',FECHADO_PERM:'⛔'};
+function waLink(txt){return 'https://wa.me/?text='+encodeURIComponent(txt)}
+function diaLocal(iso){const d=new Date(iso);return isNaN(d)?String(iso).slice(0,10):d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+function meusNumeros(){
+  const hoje=hojeISO(); const n={hoje:0,posHoje:0,mes:0,porSt:{}};
+  for(const r of todosRegistros()){
+    if(r[1]!==dev) continue; n.mes++;
+    if(diaLocal(r[0])===hoje){n.hoje++; if(ST[r[3]]&&ST[r[3]].pos)n.posHoje++; n.porSt[r[3]]=(n.porSt[r[3]]||0)+1}
+  }
+  let posTime=0; estadoClientes().forEach(e=>{if(ST[e.best].pos)posTime++});
+  n.metaPct=pct(posTime,Math.ceil(BASE.length*CONFIG.META_PCT));
+  return n;
+}
+function textoVisita(reg,n){
+  const r=byCod.get(reg.cod_cliente);
+  let det=reg.produtos?` (${reg.produtos})`:''; if(reg.embalagem) det+=` ${reg.embalagem}`;
+  const l=['*DM Field · Desafio Zero*',`👤 ${reg.desenvolvedor}`,`🏪 ${reg.cliente} (${reg.cod_cliente})`,`📍 ${reg.cidade} · Rota ${reg.rota} · ${DIA_NOME[r?r[3]:-1]}`,
+    `${ST_EMOJI[reg.status]} *${reg.status_desc}*${det}`];
+  if(reg.motivo) l.push(`Motivo: ${reg.motivo}`);
+  if(reg.observacao) l.push(`💬 ${reg.observacao}`);
+  l.push(`📊 Hoje: ${n.hoje} visita${n.hoje===1?'':'s'} · ${n.posHoje} positivado${n.posHoje===1?'':'s'}`);
+  return l.join('\n');
+}
+function textoDia(){
+  const n=meusNumeros(); const d=new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'2-digit'});
+  const l=['*DM Field · Resumo do dia*',`👤 ${dev} · ${d}`,`Visitas: ${n.hoje}`];
+  for(const k of Object.keys(ST)){ if(n.porSt[k]) l.push(`${ST_EMOJI[k]} ${ST[k].t}: ${n.porSt[k]}`) }
+  l.push(`✅ Positivados (Dupla/Tripla): ${n.posHoje}`, `📊 Time: ${n.metaPct}% da meta`);
+  return l.join('\n');
+}
+function telaFeito(reg){
+  const n=meusNumeros(); const s=ST[reg.status];
+  const ic=s.rev?'<svg width="40" height="40" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2.6"/><path fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" d="M12 7v5l3 2"/></svg>'
+                 :'<svg width="44" height="44" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+  $('#done').innerHTML=`
+    <div class="top"><h1>DM Field</h1><small>Desafio Zero · Outubro 2026</small></div>
+    <div class="card">
+      <div class="check" style="--sc:${s.rev?'var(--rev)':s.c}">${ic}</div>
+      <h2 id="done-t">${s.rev?'Registrado para revisitar':'Visita registrada'}</h2>
+      <div class="who">${esc(reg.cliente)}</div>
+      <div class="res"><span class="pill" style="--pc:${s.c}">${s.t}</span></div>
+      <div class="stats">
+        <div><b>${fmtN(n.hoje)}</b><span>Suas visitas hoje</span></div>
+        <div><b style="color:var(--dup)">${fmtN(n.posHoje)}</b><span>Positivados hoje</span></div>
+        <div><b>${fmtN(n.mes)}</b><span>Suas visitas no mês</span></div>
+        <div><b>${n.metaPct}%</b><span>Meta do time</span></div>
+      </div>
+      <a class="btn wa" href="${waLink(textoVisita(reg,n))}" target="_blank" rel="noopener">${WA_SVG}Compartilhar no WhatsApp</a>
+      <button class="btn next" id="proximo">Próximo cliente</button>
+      <button class="btn ghost" id="verparcial">Ver parcial</button>
+    </div>`;
+  $('#done').classList.add('on'); $('#done').scrollTop=0;
+}
+function fecharFeito(){ $('#done').classList.remove('on') }
 
 /* ---------- comunicação com a planilha ---------- */
 let enviando=false;
@@ -502,7 +582,7 @@ function renderParcial(){
       <thead><tr><th>Nome</th><th>Visitas</th><th>Atend.</th><th>Posit.</th><th>Conv.</th><th>Tripla</th></tr></thead>
       <tbody>${devs.map(([n,v])=>`<tr class="${n===dev?'me':''}"><td>${esc(n)}</td><td>${fmtN(v.reg)}</td><td>${fmtN(v.atend)}</td><td>${fmtN(v.pos)}</td><td>${pct(v.pos,v.atend)}%</td><td>${fmtN(v.tri)}</td></tr>`).join('')}</tbody>
     </table></div>
-    <div class="sync"><span>${fila.length?`${fila.length} visita(s) aguardando sinal para enviar. `:''}${ultimaSync?'Atualizado em '+dataBR(ultimaSync):'Ainda não sincronizou'}</span><button id="sincr">Atualizar</button></div>`;
+    <div class="sync"><span>${fila.length?`${fila.length} visita(s) aguardando sinal para enviar. `:''}${ultimaSync?'Atualizado em '+dataBR(ultimaSync):'Ainda não sincronizou'}</span><span style="display:flex;gap:6px">${dev?`<a class="wa-day" href="${waLink(textoDia())}" target="_blank" rel="noopener">${WA_SVG}Meu dia</a>`:''}<button id="sincr">Atualizar</button></span></div>`;
 }
 
 /* ---------- eventos ---------- */
@@ -533,6 +613,10 @@ document.querySelector('nav').addEventListener('click',e=>{
   if(b.dataset.v==='parcial'){renderParcial();baixar(false)}
 });
 $('#parcial').addEventListener('click',e=>{if(e.target.id==='sincr')baixar(true)});
+$('#done').addEventListener('click',e=>{
+  if(e.target.closest('#proximo')){fecharFeito();$('#q').value='';renderLista()}
+  if(e.target.closest('#verparcial')){fecharFeito();document.querySelector('nav button[data-v=parcial]').click()}
+});
 window.addEventListener('online',()=>{enviarFila().then(()=>baixar(false))});
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){enviarFila();baixar(false)}});
 
