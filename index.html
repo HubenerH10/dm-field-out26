@@ -204,7 +204,7 @@ const CONFIG = {
                '2026-10-13','2026-10-14','2026-10-15','2026-10-16',
                '2026-10-19','2026-10-20','2026-10-21','2026-10-22','2026-10-23',
                '2026-10-26','2026-10-27','2026-10-28','2026-10-29','2026-10-30'],
-  VERSAO: '1.0'
+  VERSAO: '1.1'
 };
 /* =============================================================== */
 
@@ -424,17 +424,17 @@ let enviando=false;
 async function enviarFila(){
   if(enviando||!fila.length||!/^https:/.test(CONFIG.GAS_URL)) {badge();return}
   enviando=true;
-  try{
-    while(fila.length){
-      const reg=fila[0];
+  for(const reg of fila.slice()){
+    try{
       const res=await fetch(CONFIG.GAS_URL+'?payload='+encodeURIComponent(JSON.stringify(reg)),{method:'GET',cache:'no-store'});
       const j=await res.json();
-      if(!j.ok) throw new Error(j.erro||'falha');
-      remotos.push([reg.data_hora,reg.desenvolvedor,reg.cod_cliente,reg.status]);
-      fila.shift(); LS.set(K_FILA,fila); LS.set(K_REM,remotos);
-    }
-  }catch(e){ /* sem sinal: fica na fila */ }
+      if(!j.ok) continue;
+      if(!j.dup) remotos.push([reg.data_hora,reg.desenvolvedor,reg.cod_cliente,reg.status]);
+      fila=fila.filter(f=>f.id!==reg.id); LS.set(K_FILA,fila); LS.set(K_REM,remotos);
+    }catch(e){ break; /* sem sinal: tenta de novo depois */ }
+  }
   enviando=false; badge();
+  baixar(false); // a planilha confirma o que chegou
 }
 async function baixar(manual){
   if(!/^https:/.test(CONFIG.GAS_URL)){ if(manual) toast('Falta colar a URL do Apps Script no CONFIG.'); return }
@@ -442,8 +442,8 @@ async function baixar(manual){
     const res=await fetch(CONFIG.GAS_URL+'?action=dados&t='+Date.now(),{cache:'no-store'});
     const j=await res.json();
     if(j.ok){ remotos=j.rows; LS.set(K_REM,remotos); ultimaSync=new Date().toISOString(); LS.set(K_SYNC,ultimaSync);
-      // tira da fila o que já chegou na planilha
-      const ids=new Set(j.ids||[]); if(ids.size){fila=fila.filter(f=>!ids.has(f.id));LS.set(K_FILA,fila)}
+      // a planilha é a referência: o que ela já recebeu sai da fila, mesmo que tenha sido apagado depois
+      const rec=new Set((j.recebidos||[]).concat(j.ids||[])); if(rec.size){fila=fila.filter(f=>!rec.has(f.id));LS.set(K_FILA,fila)}
       if(manual) toast('Parcial atualizada.');
     }
   }catch(e){ if(manual) toast('Sem conexão. Mostrando o último dado salvo.') }
